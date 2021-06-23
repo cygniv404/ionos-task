@@ -68,3 +68,6 @@ table th {
 .error-message{
   color: #f67280 !important;
 }
+.warning-message{
+  color: #d8d223 !important;
+}
