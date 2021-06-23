@@ -5,6 +5,7 @@ from api.models import TestRunRequest, TestFilePath, TestEnvironment
 
 class TestRunRequestSerializer(serializers.ModelSerializer):
     env_name = serializers.ReadOnlyField(source='env.name')
+    path = serializers.PrimaryKeyRelatedField(queryset=TestFilePath.objects.all(), many=True, required=False)
 
     class Meta:
         model = TestRunRequest

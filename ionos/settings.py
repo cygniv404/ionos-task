@@ -147,5 +147,7 @@ TEST_BASE_DIRS = [
     os.path.join(BASE_DIR, 'sample-tests'),
     os.path.join(BASE_DIR, 'api/tests'),
 ]
+UPLOAD_TEST_DIR = 'upload-tests'
+UPLOAD_TEST_BASE_DIR = os.path.join(BASE_DIR, UPLOAD_TEST_DIR)
 TEST_RUN_REQUEST_TIMEOUT_SECONDS = 60 * 60 * 30  # 30 Minutes
 TEST_BASE_CMD = ['pytest', '-v']
