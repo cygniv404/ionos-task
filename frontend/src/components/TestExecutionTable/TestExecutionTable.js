@@ -23,7 +23,7 @@ class TestExecutionTable extends Component {
                       <th>Details</th>
                     </tr>
                     </thead>
-                    <tbody>
+                    <tbody aria-label='textExecution-table'>
                     {tests}
                     </tbody>
                   </table>
