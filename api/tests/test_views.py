@@ -1,3 +1,5 @@
+import base64
+import os
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -5,6 +7,7 @@ from django.urls import reverse
 from rest_framework import status
 
 from api.models import TestRunRequest, TestEnvironment, TestFilePath
+from ionos.settings import BASE_DIR, UPLOAD_TEST_BASE_DIR
 
 
 class TestTestRunRequestAPIView(TestCase):
@@ -13,6 +16,7 @@ class TestTestRunRequestAPIView(TestCase):
         self.env = TestEnvironment.objects.create(name='my_env')
         self.path1 = TestFilePath.objects.create(path='path1')
         self.path2 = TestFilePath.objects.create(path='path2')
+        self.file = {'name': 'test_file.py', 'data': self.__get_test_file_base64()}
         self.url = reverse('test_run_req')
 
     def test_get_empty(self):
@@ -36,7 +40,6 @@ class TestTestRunRequestAPIView(TestCase):
         self.assertEqual(
             {
                 'env': ['This field is required.'],
-                'path': ['This list may not be empty.'],
                 'requested_by': ['This field is required.']
             },
             response_data
@@ -64,7 +67,8 @@ class TestTestRunRequestAPIView(TestCase):
     def test_post_valid_multiple_paths(self, task):
         response = self.client.post(
             self.url,
-            data={'env': self.env.id, 'path': [self.path1.id, self.path2.id], 'requested_by': 'iron man'}
+            content_type="application/json",
+            data={'env': self.env.id, 'path': [self.path1.id, self.path2.id], 'requested_by': 'iron man', 'file': None}
         )
         self.assertEqual(status.HTTP_201_CREATED, response.status_code)
         response_data = response.json()
@@ -74,12 +78,34 @@ class TestTestRunRequestAPIView(TestCase):
 
     @patch('api.views.execute_test_run_request.delay')
     def test_post_valid_one_path(self, task):
-        response = self.client.post(self.url, data={'env': self.env.id, 'path': self.path1.id, 'requested_by': 'iron man'})
+        response = self.client.post(
+            self.url,
+            content_type="application/json",
+            data={'env': self.env.id, 'path': [self.path1.id], 'requested_by': 'iron man', 'file': None}
+        )
         self.assertEqual(status.HTTP_201_CREATED, response.status_code)
         response_data = response.json()
         self.__assert_valid_response(response_data, [self.path1.id])
         self.assertTrue(task.called)
         task.assert_called_with(response_data['id'])
+
+    @patch('api.views.execute_test_run_request.delay')
+    def test_post_valid_uploaded_file(self, task):
+        response = self.client.post(
+            self.url,
+            content_type="application/json",
+            data={'env': self.env.id, 'path': [self.path1.id], 'requested_by': 'iron man', 'file': self.file}
+        )
+        self.assertEqual(status.HTTP_201_CREATED, response.status_code)
+        response_data = response.json()
+        assert os.path.exists(os.path.join(UPLOAD_TEST_BASE_DIR,self.file['name']))
+        self.assertTrue(task.called)
+        task.assert_called_with(response_data['id'])
+
+    @staticmethod
+    def __get_test_file_base64() -> str:
+        data = open(os.path.join(BASE_DIR, 'sample-tests', 'test_success.py'), "rb")
+        return str(base64.b64encode(data.read()).decode('ascii'))
 
     def __assert_valid_response(self, response_data, expected_paths):
         self.assertIn('created_at', response_data)
@@ -112,10 +138,10 @@ class TestRunRequestItemAPIView(TestCase):
         self.path2 = TestFilePath.objects.create(path='path2')
         self.test_run_req.path.add(self.path1)
         self.test_run_req.path.add(self.path2)
-        self.url = reverse('test_run_req_item', args=(self.test_run_req.id, ))
+        self.url = reverse('test_run_req_item', args=(self.test_run_req.id,))
 
     def test_get_invalid_pk(self):
-        self.url = reverse('test_run_req_item', args=(8897, ))
+        self.url = reverse('test_run_req_item', args=(8897,))
         response = self.client.get(self.url)
         self.assertEqual(status.HTTP_404_NOT_FOUND, response.status_code)
 
